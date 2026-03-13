@@ -1,0 +1,50 @@
+name: Publish to ClawHub
+
+on:
+  # Trigger automatically when a GitHub Release is published
+  release:
+    types: [published]
+
+  # Allow manual re-publish from the Actions tab
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. 1.2.3). Defaults to the version in pyproject.toml."
+        required: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            # Manual dispatch: use the provided version
+            VERSION="${{ github.event.inputs.version }}"
+          elif [ -n "${{ github.event.release.tag_name }}" ]; then
+            # Release event: strip leading 'v' from the tag (v1.2.3 → 1.2.3)
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          else
+            # Fallback: read from pyproject.toml
+            VERSION=$(grep '^version' pyproject.toml | head -1 | sed 's/.*= *"\(.*\)"/\1/')
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing version: $VERSION"
+
+      - name: Install ClawHub CLI
+        run: pip install clawhub-cli
+
+      - name: Authenticate with ClawHub
+        run: clawhub login --token "${{ secrets.CLAWHUB_TOKEN }}"
+
+      - name: Publish skill
+        run: |
+          clawhub publish . \
+            --version "${{ steps.version.outputs.version }}" \
+            --no-input \
+            --yes
