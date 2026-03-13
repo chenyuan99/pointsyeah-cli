@@ -29,6 +29,9 @@ jobs:
           # Keep this pinned-ish for reproducibility; renovate can update.
           version: "0.5.x"
           enable-cache: true
+          # Don't fail the job if cache dependency globs match nothing
+          # (e.g., first run before uv.lock exists, or if the action's defaults change).
+          ignore-nothing-to-cache: true
 
       - name: Install
         run: |
